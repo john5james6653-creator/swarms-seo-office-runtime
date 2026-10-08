@@ -1,16 +1,7 @@
 # Claw3D Studio — Railway-ready build.
-# Upstream's published image runs Node 20, but camera-controls requires Node >= 22,
-# which makes next.config.ts fail to transpile at runtime. This image pins Node 22
-# and clones the upstream source at build time.
-FROM node:22-slim AS deps
-WORKDIR /app
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-RUN git clone --depth 1 https://github.com/iamlukethedev/Claw3D.git /app
-WORKDIR /app
-RUN npm ci --ignore-scripts --omit=dev
-
+# Node 22: camera-controls requires >= 22 (upstream's Node-20 image crashes).
+# The runner keeps devDependencies (TypeScript included) so Next.js can
+# transpile next.config.ts at startup without installing anything at runtime.
 FROM node:22-slim AS builder
 WORKDIR /app
 RUN apt-get update \
@@ -31,7 +22,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/server ./server
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.ts ./next.config.ts
 
